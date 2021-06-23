@@ -3,6 +3,14 @@ import requests
 import math
 import random
 import Adafruit_DHT
+import RPi.GPIO as GPIO
+
+pin1 = 16
+pin2 = 26
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(pin1, GPIO.OUT)
+GPIO.setup(pin2, GPIO.OUT)
 
 TOKEN = "BBFF-dA2bHqwnRuXFOG2rMW27oVsNFgyBvk" 
 DEVICE_LABEL = "Monitoreo"  
@@ -14,9 +22,15 @@ VARIABLE_LABEL_3 = "Posicion"
 def build_payload(variable_1, variable_2, variable_3):
     
     sensor1 = Adafruit_DHT.DHT11
-    pin = 16
-    humidity, temperature = Adafruit_DHT.read_retry(sensor1, pin)
+    ventilador = GPIO.PWM(pin2, 0.5)
+    
+    humidity, temperature = Adafruit_DHT.read_retry(sensor1, pin1)
     print(temperature , humidity)
+    
+    if temperature >= 30.00:
+        ventilador.start(1)
+    else:
+        ventilador.stop()
     
     value_1 = temperature
     value_2 = humidity
