@@ -1,31 +1,71 @@
 import time
+import requests
+import math
+import random
 import Adafruit_DHT
-from beebotte import *
 
-bbt = BBT('BME6UPxl7TJGoQKhYtFxoNpc', 'otw4bkPmc0SbTsCCKdTPY98kJf817tl6')
+TOKEN = "BBFF-dA2bHqwnRuXFOG2rMW27oVsNFgyBvk" 
+DEVICE_LABEL = "Monitoreo"  
+VARIABLE_LABEL_1 = "Temperatura"  
+VARIABLE_LABEL_2 = "Humedad"  
+VARIABLE_LABEL_3 = "Posicion"  
 
-period = 300 
-pin = 11
 
-temp_resource   = Resource(bbt, 'IoT_House', 'temperature')
-humid_resource  = Resource(bbt, 'IoT_House', 'humidity')
-
-def run():
-  while True:
-      
-    humidity, temperature = Adafruit_DHT.read_retry( Adafruit_DHT.DHT11, pin )
+def build_payload(variable_1, variable_2, variable_3):
     
-    if humidity is not None and temperature is not None:
-        print ("Temp={0:f}*C Humidity={1:f}%".format(temperature, humidity))
-        print (temperature)
-        try:
-          temp_resource.write(temperature)
-          humid_resource.write(humidity)
-            
-        except Exception:
-          print ("Error de conexion con Beebotte")
-    else:
-        print ("Falla con adafruit")
-    time.sleep( period )
+    sensor1 = Adafruit_DHT.DHT11
+    pin = 16
+    humidity, temperature = Adafruit_DHT.read_retry(sensor1, pin)
+    print(temperature , humidity)
+    
+    value_1 = temperature
+    value_2 = humidity
 
-run()
+    lat = random.randrange(34, 36, 1) + \
+        random.randrange(1, 1000, 1) / 1000.0
+    lng = random.randrange(-83, -87, -1) + \
+        random.randrange(1, 1000, 1) / 1000.0
+    payload = {variable_1: value_1,
+               variable_2: value_2,
+               variable_3: {"value": 1, "context": {"lat": lat, "lng": lng}}}
+
+    return payload
+
+
+def post_request(payload):
+    
+    url = "http://industrial.api.ubidots.com"
+    url = "{}/api/v1.6/devices/{}".format(url, DEVICE_LABEL)
+    headers = {"X-Auth-Token": TOKEN, "Content-Type": "application/json"}
+
+    status = 400
+    attempts = 0
+    while status >= 400 and attempts <= 5:
+        req = requests.post(url=url, headers=headers, json=payload)
+        status = req.status_code
+        attempts += 1
+        time.sleep(1)
+
+    print(req.status_code, req.json())
+    if status >= 400:
+        print("[ERROR] Could not send data after 5 attempts, please check \
+            your token credentials and internet connection")
+        return False
+
+    print("[INFO] request made properly, your device is updated")
+    return True
+
+
+def main():
+    payload = build_payload(
+        VARIABLE_LABEL_1, VARIABLE_LABEL_2, VARIABLE_LABEL_3)
+
+    print("[INFO] Attemping to send data")
+    post_request(payload)
+    print("[INFO] finished")
+
+
+if __name__ == '__main__':
+    while (True):
+        main()
+        time.sleep(300)
